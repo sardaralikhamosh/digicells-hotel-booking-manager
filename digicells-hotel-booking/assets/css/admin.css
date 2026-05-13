@@ -1,0 +1,4 @@
+.dghb-gallery-container { padding: 10px; }
+.dghb-gallery-item { position: relative; display: inline-block; margin: 5px; border: 1px solid #ddd; padding: 5px; background: #fff; }
+.dghb-gallery-item img { max-width: 100px; height: auto; display: block; }
+.dghb-gallery-item button { margin-top: 5px; }
