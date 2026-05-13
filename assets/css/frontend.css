@@ -1,0 +1,57 @@
+/* Poppins & Theme Colors */
+body, .dghbm-cards-grid, .dghbm-modal-content {
+    font-family: 'Poppins', sans-serif;
+}
+:root {
+    --dghbm-primary: #f68511;
+    --dghbm-secondary: #0048a5;
+    --dghbm-dark: #1e1e2a;
+    --dghbm-white: #ffffff;
+    --dghbm-gray: #f8f9fa;
+}
+.dghbm-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 25px;
+}
+.dghbm-card {
+    background: var(--dghbm-white);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.dghbm-card img { width:100%; height:200px; object-fit:cover; }
+.dghbm-card-content { padding: 15px; }
+.dghbm-btn {
+    background: var(--dghbm-primary);
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 30px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+.dghbm-btn-outline {
+    background: transparent;
+    border: 1px solid var(--dghbm-primary);
+    color: var(--dghbm-primary);
+}
+.dghbm-modal {
+    display: none;
+    position: fixed;
+    top:0; left:0; width:100%; height:100%;
+    background: rgba(0,0,0,0.7);
+    z-index: 999999;
+}
+.dghbm-modal-content {
+    background: white;
+    max-width: 600px;
+    margin: 50px auto;
+    border-radius: 20px;
+    padding: 20px;
+}
+@media (max-width:768px) {
+    .dghbm-cards-grid { grid-template-columns: 1fr; }
+    .dghbm-modal-content { width: 95%; margin: 20px auto; }
+}
