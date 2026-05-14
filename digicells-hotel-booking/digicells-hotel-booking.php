@@ -1,14 +1,16 @@
 <?php
 /**
  * Plugin Name: Digicells Hotel Booking Manager
- * Version: 1.4.0
+ * Plugin URI: https://hamaribooking.com/
+ * Description: Professional Hotel, Guest House and private property booking management system
+ * Version: 1.5.0
  * Author: Sardar Ali Khamosh (digicells)
  * Text Domain: dghb
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('DGHB_VERSION', '1.4.0');
+define('DGHB_VERSION', '1.5.0');
 define('DGHB_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('DGHB_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -113,7 +115,7 @@ function dghb_render_meta_box($post) {
         'hotel_type' => 'Hotel Type (Hotel, Guest House, Private Flat, Private House)',
         'price_per_night' => 'Price per night',
         'discount_price' => 'Discount price',
-        'currency' => 'Currency (e.g., PKR, USD)',
+        'currency' => 'Currency',
         'guest_capacity' => 'Guest capacity',
         'total_rooms' => 'Total rooms',
         'checkin_time' => 'Check-in time',
@@ -124,7 +126,7 @@ function dghb_render_meta_box($post) {
         'country' => 'Country',
         'city' => 'City',
         'address' => 'Full address',
-        'map_embed' => 'Google Map embed link (iframe or URL)',
+        'map_embed' => 'Google Map embed code or share link',
         'status' => 'Availability status',
     ];
     echo '<table class="form-table">';
@@ -141,6 +143,20 @@ function dghb_render_meta_box($post) {
             $types = ['Hotel', 'Guest House', 'Private Flat', 'Private House', 'Boutique'];
             foreach ($types as $t) echo '<option value="' . $t . '" ' . selected($val, $t, false) . '>' . $t . '</option>';
             echo '</select>';
+        } elseif ($key == 'currency') {
+            // Currency dropdown with default PKR
+            $currencies = ['PKR' => 'Pakistani Rupee (PKR)', 'USD' => 'US Dollar (USD)', 'EUR' => 'Euro (EUR)', 'GBP' => 'British Pound (GBP)', 'AED' => 'UAE Dirham (AED)', 'SAR' => 'Saudi Riyal (SAR)'];
+            echo '<select name="dghb_currency">';
+            foreach ($currencies as $code => $name) {
+                echo '<option value="' . $code . '" ' . selected($val, $code, false) . '>' . $name . '</option>';
+            }
+            echo '</select>';
+        } elseif ($key == 'map_embed') {
+            // Default map embed (sample iframe)
+            $default_map = '<iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3319.123456!2d73.0479!3d33.6844!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x38dfbfd1a6e6d3b9%3A0x5b5c5c5c5c5c5c5c!2sIslamabad!5e0!3m2!1sen!2s!4v1234567890" width="100%" height="300" style="border:0;" allowfullscreen="" loading="lazy"></iframe>';
+            if (empty($val)) $val = $default_map;
+            echo '<textarea name="dghb_map_embed" rows="3" class="widefat">' . esc_textarea($val) . '</textarea>';
+            echo '<p class="description">Paste Google Maps embed iframe code or share link (will be converted).</p>';
         } else {
             echo '<input type="text" name="dghb_' . $key . '" value="' . esc_attr($val) . '" class="widefat">';
         }
@@ -230,7 +246,6 @@ function dghb_get_all_hotel_types() {
     global $wpdb;
     $types = $wpdb->get_col("SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_dghb_hotel_type' AND meta_value != ''");
     if (empty($types)) $types = ['Hotel', 'Guest House', 'Private Flat', 'Private House', 'Boutique'];
-
     return $types;
 }
 
@@ -259,7 +274,7 @@ function dghb_settings_page() {
                 <tr><th>Global comment setting</th><td>
                     <label><input type="radio" name="enable_comments" value="yes" <?php checked($enable_comments, 'yes'); ?>> Enable comments by default</label><br>
                     <label><input type="radio" name="enable_comments" value="no" <?php checked($enable_comments, 'no'); ?>> Disable comments by default</label>
-                </td></tr>
+                </td></table>
             </table>
             <input type="submit" name="dghb_save_settings" class="button-primary" value="Save Settings">
         </form>
@@ -367,8 +382,17 @@ function dghb_submit_review() {
         'status' => 'approved'
     ];
     $inserted = $wpdb->insert($wpdb->prefix . 'dghb_reviews', $data);
-    if ($inserted) wp_send_json_success(['message' => 'Review submitted!']);
-    else wp_send_json_error('Error submitting review.');
+    if ($inserted) {
+        // Return the new review HTML to be prepended
+        $review_html = '<div class="dghb-review" data-id="' . $wpdb->insert_id . '">
+            <div class="dghb-review-rating">' . str_repeat('★', $data['rating']) . str_repeat('☆', 5 - $data['rating']) . '</div>
+            <div class="dghb-reviewer"><strong>' . esc_html($data['reviewer_name']) . '</strong> - ' . current_time('M d, Y') . '</div>
+            <div class="dghb-review-text">' . nl2br(esc_html($data['review_text'])) . '</div>
+        </div>';
+        wp_send_json_success(['message' => 'Review submitted!', 'html' => $review_html, 'count' => 1]);
+    } else {
+        wp_send_json_error('Error submitting review.');
+    }
 }
 
 // SHORTCODES
