@@ -109,7 +109,7 @@ function dghb_add_meta_boxes() {
 function dghb_render_meta_box($post) {
     wp_nonce_field('dghb_save_meta', 'dghb_meta_nonce');
     $fields = [
-        'hotel_type' => 'Hotel Type (Luxury, Budget, Business, Resort)',
+        'hotel_type' => 'Hotel Type (Hotel, Guest House, Private Flat, Private House)',
         'price_per_night' => 'Price per night',
         'discount_price' => 'Discount price',
         'currency' => 'Currency (e.g., PKR, USD)',
