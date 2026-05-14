@@ -108,6 +108,7 @@ function dghb_add_meta_boxes() {
 
 function dghb_render_meta_box($post) {
     wp_nonce_field('dghb_save_meta', 'dghb_meta_nonce');
+
     $fields = [
         'hotel_type' => 'Hotel Type (Hotel, Guest House, Private Flat, Private House)',
         'price_per_night' => 'Price per night',
@@ -137,7 +138,7 @@ function dghb_render_meta_box($post) {
             echo '</select>';
         } elseif ($key == 'hotel_type') {
             echo '<select name="dghb_hotel_type">';
-            $types = ['Luxury', 'Business', 'Budget', 'Resort', 'Boutique'];
+            $types = ['Hotel', 'Guest House', 'Private Flat', 'Private House', 'Boutique'];
             foreach ($types as $t) echo '<option value="' . $t . '" ' . selected($val, $t, false) . '>' . $t . '</option>';
             echo '</select>';
         } else {
@@ -228,7 +229,8 @@ function dghb_get_all_cities() {
 function dghb_get_all_hotel_types() {
     global $wpdb;
     $types = $wpdb->get_col("SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_dghb_hotel_type' AND meta_value != ''");
-    if (empty($types)) $types = ['Luxury', 'Business', 'Budget', 'Resort', 'Boutique'];
+    if (empty($types)) $types = ['Hotel', 'Guest House', 'Private Flat', 'Private House', 'Boutique'];
+
     return $types;
 }
 
