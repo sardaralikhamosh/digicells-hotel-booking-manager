@@ -170,5 +170,15 @@
     cursor: pointer;
     border-radius: 50%;
 }
+.dghb-icon {
+    color: #034aa6;
+    margin-right: 5px;
+}
+.dghb-search-field button {
+    background: #034aa6;
+}
+.dghb-search-field button:hover {
+    background: #023580;
+}
 .dghb-slider-prev { left: 10px; }
 .dghb-slider-next { right: 10px; }

@@ -1,16 +1,16 @@
 <?php
 /**
  * Plugin Name: Digicells Hotel Booking Manager
- * Plugin URI: https://hamaribooking.com/
+ * Plugin URI: https://digicellinternational.github.io
  * Description: Professional Hotel, Guest House and private property booking management system
- * Version: 1.5.0
+ * Version: 1.6.0
  * Author: Sardar Ali Khamosh (digicells)
  * Text Domain: dghb
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('DGHB_VERSION', '1.5.0');
+define('DGHB_VERSION', '1.6.0');
 define('DGHB_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('DGHB_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -46,7 +46,7 @@ function dghb_activate() {
         reviewer_email varchar(255),
         rating int NOT NULL,
         review_text text,
-        status varchar(20) DEFAULT 'approved',
+        status varchar(20) DEFAULT 'pending',
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id)
     ) $charset;";
@@ -144,19 +144,24 @@ function dghb_render_meta_box($post) {
             foreach ($types as $t) echo '<option value="' . $t . '" ' . selected($val, $t, false) . '>' . $t . '</option>';
             echo '</select>';
         } elseif ($key == 'currency') {
-            // Currency dropdown with default PKR
             $currencies = ['PKR' => 'Pakistani Rupee (PKR)', 'USD' => 'US Dollar (USD)', 'EUR' => 'Euro (EUR)', 'GBP' => 'British Pound (GBP)', 'AED' => 'UAE Dirham (AED)', 'SAR' => 'Saudi Riyal (SAR)'];
             echo '<select name="dghb_currency">';
-            foreach ($currencies as $code => $name) {
-                echo '<option value="' . $code . '" ' . selected($val, $code, false) . '>' . $name . '</option>';
+            foreach ($currencies as $code => $name) echo '<option value="' . $code . '" ' . selected($val, $code, false) . '>' . $name . '</option>';
+            echo '</select>';
+        } elseif ($key == 'city') {
+            // City dropdown from Hotel Locations taxonomy
+            $locations = get_terms(['taxonomy' => 'dghb_hotel_location', 'hide_empty' => false]);
+            echo '<select name="dghb_city">';
+            echo '<option value="">Select City</option>';
+            foreach ($locations as $loc) {
+                echo '<option value="' . esc_attr($loc->name) . '" ' . selected($val, $loc->name, false) . '>' . esc_html($loc->name) . '</option>';
             }
             echo '</select>';
         } elseif ($key == 'map_embed') {
-            // Default map embed (sample iframe)
             $default_map = '<iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3319.123456!2d73.0479!3d33.6844!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x38dfbfd1a6e6d3b9%3A0x5b5c5c5c5c5c5c5c!2sIslamabad!5e0!3m2!1sen!2s!4v1234567890" width="100%" height="300" style="border:0;" allowfullscreen="" loading="lazy"></iframe>';
             if (empty($val)) $val = $default_map;
             echo '<textarea name="dghb_map_embed" rows="3" class="widefat">' . esc_textarea($val) . '</textarea>';
-            echo '<p class="description">Paste Google Maps embed iframe code or share link (will be converted).</p>';
+            echo '<p class="description">Paste Google Maps embed iframe code or share link.</p>';
         } else {
             echo '<input type="text" name="dghb_' . $key . '" value="' . esc_attr($val) . '" class="widefat">';
         }
@@ -170,7 +175,7 @@ function dghb_render_meta_box($post) {
         $checked = in_array($a, $saved_amenities) ? 'checked' : '';
         echo '<label style="display:inline-block; width:150px;"><input type="checkbox" name="dghb_amenities[]" value="' . esc_attr($a) . '" ' . $checked . '> ' . $a . '</label>';
     }
-    echo '</td></tr></table>';
+    echo '</td><tr>';
 }
 
 function dghb_render_gallery_meta($post) {
@@ -239,8 +244,10 @@ function dghb_single_template($template) {
 
 // Helper functions
 function dghb_get_all_cities() {
-    global $wpdb;
-    return $wpdb->get_col("SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_dghb_city' AND meta_value != ''");
+    $locations = get_terms(['taxonomy' => 'dghb_hotel_location', 'hide_empty' => false]);
+    $cities = [];
+    foreach ($locations as $loc) $cities[] = $loc->name;
+    return $cities;
 }
 function dghb_get_all_hotel_types() {
     global $wpdb;
@@ -274,7 +281,7 @@ function dghb_settings_page() {
                 <tr><th>Global comment setting</th><td>
                     <label><input type="radio" name="enable_comments" value="yes" <?php checked($enable_comments, 'yes'); ?>> Enable comments by default</label><br>
                     <label><input type="radio" name="enable_comments" value="no" <?php checked($enable_comments, 'no'); ?>> Disable comments by default</label>
-                </td></table>
+                </table></tr>
             </table>
             <input type="submit" name="dghb_save_settings" class="button-primary" value="Save Settings">
         </form>
@@ -289,7 +296,7 @@ function dghb_bookings_page() {
     ?>
     <div class="wrap"><h1>Hotel Bookings</h1>
         <table class="wp-list-table widefat fixed striped">
-            <thead><tr><th>ID</th><th>Hotel</th><th>Customer</th><th>Check-in</th><th>Check-out</th><th>Total</th><th>Status</th><th>Action</th></tr></thead>
+            <thead><tr><th>ID</th><th>Hotel</th><th>Customer</th><th>Check-in</th><th>Check-out</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>
             <?php foreach ($bookings as $b): $hotel = get_the_title($b->hotel_id); ?>
                 <tr>
@@ -305,11 +312,18 @@ function dghb_bookings_page() {
                         <option value="rejected" <?php selected($b->status,'rejected'); ?>>Rejected</option>
                         <option value="completed" <?php selected($b->status,'completed'); ?>>Completed</option>
                     </select></td>
-                    <td><button class="button" onclick="alert('Special requests: <?php echo esc_js($b->special_requests); ?>')">View</button></td>
+                    <td><button class="button dghb-view-booking" data-id="<?php echo $b->id; ?>">View Details</button></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
         </table>
+    </div>
+    <!-- Modal for booking details -->
+    <div id="dghb-booking-details-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:100000;">
+        <div style="max-width:800px; margin:50px auto; background:#fff; border-radius:12px; padding:20px; position:relative;">
+            <span style="position:absolute; right:20px; top:10px; cursor:pointer; font-size:28px;" class="dghb-modal-close">&times;</span>
+            <div id="dghb-booking-details-content"></div>
+        </div>
     </div>
     <?php
 }
@@ -321,8 +335,37 @@ function dghb_update_status() {
     $wpdb->update($wpdb->prefix . 'dghb_bookings', ['status' => sanitize_text_field($_POST['status'])], ['id' => intval($_POST['booking_id'])]);
     wp_send_json_success();
 }
+add_action('wp_ajax_dghb_get_booking_details', 'dghb_get_booking_details');
+function dghb_get_booking_details() {
+    check_ajax_referer('dghb_admin_nonce', 'nonce');
+    if (!current_user_can('manage_options')) wp_die();
+    global $wpdb;
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dghb_bookings WHERE id = %d", intval($_POST['booking_id'])));
+    if ($booking) {
+        $hotel = get_post($booking->hotel_id);
+        $currency = get_post_meta($booking->hotel_id, '_dghb_currency', true);
+        $html = '<h2>Booking #' . $booking->id . '</h2>';
+        $html .= '<p><strong>Hotel:</strong> ' . esc_html($hotel->post_title) . '</p>';
+        $html .= '<p><strong>Customer Name:</strong> ' . esc_html($booking->customer_name) . '</p>';
+        $html .= '<p><strong>Email:</strong> ' . esc_html($booking->customer_email) . '</p>';
+        $html .= '<p><strong>Phone:</strong> ' . esc_html($booking->customer_phone) . '</p>';
+        $html .= '<p><strong>Country:</strong> ' . esc_html($booking->customer_country) . '</p>';
+        $html .= '<p><strong>City:</strong> ' . esc_html($booking->customer_city) . '</p>';
+        $html .= '<p><strong>Check-in:</strong> ' . $booking->checkin_date . '</p>';
+        $html .= '<p><strong>Check-out:</strong> ' . $booking->checkout_date . '</p>';
+        $html .= '<p><strong>Number of Guests:</strong> ' . $booking->number_of_guests . '</p>';
+        $html .= '<p><strong>Number of Rooms:</strong> ' . $booking->number_of_rooms . '</p>';
+        $html .= '<p><strong>Special Requests:</strong> ' . nl2br(esc_html($booking->special_requests)) . '</p>';
+        $html .= '<p><strong>Total Price:</strong> ' . esc_html($currency) . ' ' . number_format($booking->total_price) . '</p>';
+        $html .= '<p><strong>Status:</strong> ' . ucfirst($booking->status) . '</p>';
+        $html .= '<p><strong>Booking Date:</strong> ' . $booking->booking_date . '</p>';
+        wp_send_json_success(['html' => $html]);
+    } else {
+        wp_send_json_error('Booking not found.');
+    }
+}
 
-// Reviews Admin Page
+// Reviews Admin Page (fixed)
 function dghb_reviews_admin_page() {
     global $wpdb;
     $reviews = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}dghb_reviews ORDER BY id DESC");
@@ -340,7 +383,9 @@ function dghb_reviews_admin_page() {
                     <td><?php echo esc_html($r->review_text); ?></td>
                     <td><?php echo ucfirst($r->status); ?></td>
                     <td>
-                        <button class="button dghb-approve-review" data-id="<?php echo $r->id; ?>">Approve</button>
+                        <?php if ($r->status == 'pending') : ?>
+                            <button class="button dghb-approve-review" data-id="<?php echo $r->id; ?>">Approve</button>
+                        <?php endif; ?>
                         <button class="button dghb-delete-review" data-id="<?php echo $r->id; ?>">Delete</button>
                     </td>
                 </tr>
@@ -367,7 +412,7 @@ function dghb_delete_review() {
     wp_send_json_success();
 }
 
-// AJAX Submit Review
+// AJAX Submit Review (status pending by default)
 add_action('wp_ajax_dghb_submit_review', 'dghb_submit_review');
 add_action('wp_ajax_nopriv_dghb_submit_review', 'dghb_submit_review');
 function dghb_submit_review() {
@@ -379,17 +424,11 @@ function dghb_submit_review() {
         'reviewer_email' => sanitize_email($_POST['email']),
         'rating' => intval($_POST['rating']),
         'review_text' => sanitize_textarea_field($_POST['review_text']),
-        'status' => 'approved'
+        'status' => 'pending' // Now requires admin approval
     ];
     $inserted = $wpdb->insert($wpdb->prefix . 'dghb_reviews', $data);
     if ($inserted) {
-        // Return the new review HTML to be prepended
-        $review_html = '<div class="dghb-review" data-id="' . $wpdb->insert_id . '">
-            <div class="dghb-review-rating">' . str_repeat('★', $data['rating']) . str_repeat('☆', 5 - $data['rating']) . '</div>
-            <div class="dghb-reviewer"><strong>' . esc_html($data['reviewer_name']) . '</strong> - ' . current_time('M d, Y') . '</div>
-            <div class="dghb-review-text">' . nl2br(esc_html($data['review_text'])) . '</div>
-        </div>';
-        wp_send_json_success(['message' => 'Review submitted!', 'html' => $review_html, 'count' => 1]);
+        wp_send_json_success(['message' => 'Review submitted! Awaiting approval.']);
     } else {
         wp_send_json_error('Error submitting review.');
     }
@@ -425,7 +464,6 @@ function dghb_render_card($post) {
     $currency = get_post_meta($post->ID, '_dghb_currency', true);
     $status = get_post_meta($post->ID, '_dghb_status', true);
     $city = get_post_meta($post->ID, '_dghb_city', true);
-    $transmission = get_post_meta($post->ID, '_dghb_transmission', true);
     $capacity = get_post_meta($post->ID, '_dghb_guest_capacity', true);
     $thumbnail = get_the_post_thumbnail($post->ID, 'medium');
     if (!$thumbnail) $thumbnail = '<img src="' . DGHB_PLUGIN_URL . 'assets/placeholder.jpg" alt="Hotel">';
@@ -436,11 +474,10 @@ function dghb_render_card($post) {
             <div class="dghb-status-badge <?php echo esc_attr($status); ?>"><?php echo ucfirst(str_replace('_', ' ', $status)); ?></div>
             <h3><?php echo esc_html($post->post_title); ?></h3>
             <div class="dghb-specs">
-                <span><?php echo esc_html($transmission ?: 'Automatic'); ?></span>
-                <span>👥 <?php echo esc_html($capacity ?: 4); ?> seats</span>
+                <span>👥 <?php echo esc_html($capacity ?: 4); ?> guests</span>
             </div>
             <div class="dghb-location">📍 <?php echo esc_html($city); ?></div>
-            <div class="dghb-price"><?php echo esc_html($currency) . ' ' . number_format($price); ?> <span>/ day</span></div>
+            <div class="dghb-price"><?php echo esc_html($currency) . ' ' . number_format($price); ?> <span>/ night</span></div>
             <div class="dghb-buttons">
                 <a href="<?php echo get_permalink($post->ID); ?>" class="dghb-btn dghb-btn-outline">Details</a>
                 <?php if ($status == 'available') : ?>
