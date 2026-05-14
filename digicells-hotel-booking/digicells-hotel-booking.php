@@ -1,22 +1,18 @@
 <?php
 /**
  * Plugin Name: Digicells Hotel Booking Manager
- * Plugin URI: https://digicellinternational.github.io/
- * Description: Complete hotel booking system with gallery, reviews, booking management, shortcodes, and AJAX.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Author: Sardar Ali Khamosh (digicells)
  * Text Domain: dghb
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('DGHB_VERSION', '1.2.0');
+define('DGHB_VERSION', '1.3.0');
 define('DGHB_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('DGHB_PLUGIN_URL', plugin_dir_url(__FILE__));
 
-// ----------------------------------------------
 // Activation: create tables
-// ----------------------------------------------
 register_activation_hook(__FILE__, 'dghb_activate');
 function dghb_activate() {
     global $wpdb;
@@ -59,13 +55,9 @@ function dghb_activate() {
 }
 
 register_deactivation_hook(__FILE__, 'dghb_deactivate');
-function dghb_deactivate() {
-    flush_rewrite_rules();
-}
+function dghb_deactivate() { flush_rewrite_rules(); }
 
-// ----------------------------------------------
-// Register Post Type & Taxonomies
-// ----------------------------------------------
+// Register Post Type
 add_action('init', 'dghb_register_post_type');
 function dghb_register_post_type() {
     register_post_type('dghb_hotel', [
@@ -83,7 +75,7 @@ function dghb_register_post_type() {
         'public' => true,
         'has_archive' => true,
         'rewrite' => ['slug' => 'hotel'],
-        'supports' => ['title', 'editor', 'thumbnail', 'excerpt', 'comments'],
+        'supports' => ['title', 'editor', 'thumbnail', 'excerpt'],
         'menu_icon' => 'dashicons-building',
         'show_in_rest' => true,
     ]);
@@ -106,13 +98,12 @@ function dghb_register_post_type() {
     ]);
 }
 
-// ----------------------------------------------
-// Meta Boxes (including gallery and hotel type)
-// ----------------------------------------------
+// Meta Boxes (including comment control)
 add_action('add_meta_boxes', 'dghb_add_meta_boxes');
 function dghb_add_meta_boxes() {
     add_meta_box('dghb_hotel_details', __('Hotel Details', 'dghb'), 'dghb_render_meta_box', 'dghb_hotel', 'normal', 'high');
     add_meta_box('dghb_hotel_gallery', __('Hotel Gallery', 'dghb'), 'dghb_render_gallery_meta', 'dghb_hotel', 'normal', 'high');
+    add_meta_box('dghb_comment_control', __('Comment Settings', 'dghb'), 'dghb_render_comment_meta', 'dghb_hotel', 'side', 'low');
 }
 
 function dghb_render_meta_box($post) {
@@ -186,6 +177,19 @@ function dghb_render_gallery_meta($post) {
     <?php
 }
 
+function dghb_render_comment_meta($post) {
+    wp_nonce_field('dghb_save_comment_meta', 'dghb_comment_nonce');
+    $enable_comments = get_post_meta($post->ID, '_dghb_enable_comments', true);
+    if ($enable_comments === '') $enable_comments = 'default';
+    ?>
+    <p>
+        <label><input type="radio" name="dghb_enable_comments" value="default" <?php checked($enable_comments, 'default'); ?>> Use global setting</label><br>
+        <label><input type="radio" name="dghb_enable_comments" value="yes" <?php checked($enable_comments, 'yes'); ?>> Enable comments for this hotel</label><br>
+        <label><input type="radio" name="dghb_enable_comments" value="no" <?php checked($enable_comments, 'no'); ?>> Disable comments for this hotel</label>
+    </p>
+    <?php
+}
+
 add_action('save_post', 'dghb_save_meta');
 function dghb_save_meta($post_id) {
     // Save main meta
@@ -205,11 +209,15 @@ function dghb_save_meta($post_id) {
             update_post_meta($post_id, '_dghb_gallery', sanitize_text_field($_POST['dghb_gallery']));
         }
     }
+    // Save comment setting
+    if (isset($_POST['dghb_comment_nonce']) && wp_verify_nonce($_POST['dghb_comment_nonce'], 'dghb_save_comment_meta')) {
+        if (isset($_POST['dghb_enable_comments'])) {
+            update_post_meta($post_id, '_dghb_enable_comments', sanitize_text_field($_POST['dghb_enable_comments']));
+        }
+    }
 }
 
-// ----------------------------------------------
 // Single Hotel Template
-// ----------------------------------------------
 add_filter('single_template', 'dghb_single_template');
 function dghb_single_template($template) {
     global $post;
@@ -220,17 +228,21 @@ function dghb_single_template($template) {
     return $template;
 }
 
-// ----------------------------------------------
-// Helper Functions
-// ----------------------------------------------
+// Helper: get all unique cities for search dropdown
 function dghb_get_all_cities() {
     global $wpdb;
     return $wpdb->get_col("SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_dghb_city' AND meta_value != ''");
 }
 
-// ----------------------------------------------
-// Admin Settings Page (Comments on/off)
-// ----------------------------------------------
+// Helper: get all hotel types from existing hotels (dynamic)
+function dghb_get_all_hotel_types() {
+    global $wpdb;
+    $types = $wpdb->get_col("SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_dghb_hotel_type' AND meta_value != ''");
+    if (empty($types)) $types = ['Luxury', 'Business', 'Budget', 'Resort', 'Boutique'];
+    return $types;
+}
+
+// Admin Settings Page (global comments toggle)
 add_action('admin_menu', 'dghb_admin_menu');
 function dghb_admin_menu() {
     add_menu_page('Hotel Booking', 'Hotel Booking', 'manage_options', 'dghb_dashboard', 'dghb_dashboard_page', 'dashicons-building', 25);
@@ -252,21 +264,19 @@ function dghb_settings_page() {
         <h1>Hotel Booking Settings</h1>
         <form method="post">
             <table class="form-table">
-                <tr><th>Enable comments on single hotel page?</th>
-                    <td><label><input type="radio" name="enable_comments" value="yes" <?php checked($enable_comments, 'yes'); ?>> Yes</label>
-                        <label><input type="radio" name="enable_comments" value="no" <?php checked($enable_comments, 'no'); ?>> No</label>
-                     </td>
-                 </tr>
-            </table>
+                <tr><th>Global comment setting (can be overridden per hotel)</th>
+                    <td><label><input type="radio" name="enable_comments" value="yes" <?php checked($enable_comments, 'yes'); ?>> Enable comments by default</label><br>
+                        <label><input type="radio" name="enable_comments" value="no" <?php checked($enable_comments, 'no'); ?>> Disable comments by default</label>
+                      </td>
+                  </tr>
+             </table>
             <input type="submit" name="dghb_save_settings" class="button-primary" value="Save Settings">
         </form>
     </div>
     <?php
 }
 
-// ----------------------------------------------
 // Bookings Admin Page
-// ----------------------------------------------
 function dghb_bookings_page() {
     global $wpdb;
     $bookings = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}dghb_bookings ORDER BY id DESC");
@@ -303,9 +313,7 @@ function dghb_update_status() {
     wp_send_json_success();
 }
 
-// ----------------------------------------------
 // Reviews Admin Page
-// ----------------------------------------------
 function dghb_reviews_admin_page() {
     global $wpdb;
     $reviews = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}dghb_reviews ORDER BY id DESC");
@@ -348,9 +356,7 @@ function dghb_delete_review() {
     wp_send_json_success();
 }
 
-// ----------------------------------------------
 // AJAX Submit Review
-// ----------------------------------------------
 add_action('wp_ajax_dghb_submit_review', 'dghb_submit_review');
 add_action('wp_ajax_nopriv_dghb_submit_review', 'dghb_submit_review');
 function dghb_submit_review() {
@@ -369,9 +375,7 @@ function dghb_submit_review() {
     else wp_send_json_error('Error submitting review.');
 }
 
-// ----------------------------------------------
 // SHORTCODES
-// ----------------------------------------------
 add_shortcode('dghb_hotel_listing', 'dghb_hotel_listing_shortcode');
 function dghb_hotel_listing_shortcode($atts) {
     $atts = shortcode_atts(['per_page' => 8], $atts);
@@ -416,7 +420,7 @@ function dghb_render_card($post) {
             <div class="dghb-location">📍 <?php echo esc_html($city); ?></div>
             <div class="dghb-price"><?php echo esc_html($currency) . ' ' . number_format($price); ?> <span>/ night</span></div>
             <div class="dghb-buttons">
-                <a href="<?php echo get_permalink($post->ID); ?>" class="dghb-btn dghb-btn-outline">View Details</a>
+                <a href="<?php echo get_permalink($post->ID); ?>" class="dghb-btn dghb-btn-outline">Details</a>
                 <?php if ($status == 'available') : ?>
                 <button class="dghb-btn dghb-book-now" data-id="<?php echo $post->ID; ?>" data-price="<?php echo esc_attr($price); ?>" data-currency="<?php echo esc_attr($currency); ?>">Book Now</button>
                 <?php endif; ?>
@@ -425,25 +429,46 @@ function dghb_render_card($post) {
     </div>
     <?php
 }
+
+// Updated Search Shortcode (with labels & three fields)
 add_shortcode('dghb_search_form', 'dghb_search_form_shortcode');
 function dghb_search_form_shortcode() {
     ob_start(); ?>
     <div class="dghb-advanced-search">
-        <input type="text" id="dghb_search_title" placeholder="Hotel name...">
-        <select id="dghb_search_location">
-            <option value="">All Locations</option>
-            <?php foreach (dghb_get_all_cities() as $city) echo '<option value="' . esc_attr($city) . '">' . esc_html($city) . '</option>'; ?>
-        </select>
-        <button id="dghb_search_btn">Search</button>
+        <div class="dghb-search-field">
+            <label>Name</label>
+            <input type="text" id="dghb_search_title" placeholder="Hotel name...">
+        </div>
+        <div class="dghb-search-field">
+            <label>Location</label>
+            <select id="dghb_search_location">
+                <option value="">All Locations</option>
+                <?php foreach (dghb_get_all_cities() as $city) echo '<option value="' . esc_attr($city) . '">' . esc_html($city) . '</option>'; ?>
+            </select>
+        </div>
+        <div class="dghb-search-field">
+            <label>Type of Property</label>
+            <select id="dghb_search_type">
+                <option value="">All Types</option>
+                <?php foreach (dghb_get_all_hotel_types() as $type) echo '<option value="' . esc_attr($type) . '">' . esc_html($type) . '</option>'; ?>
+            </select>
+        </div>
+        <div class="dghb-search-field">
+            <label>&nbsp;</label>
+            <button id="dghb_search_btn">Search</button>
+        </div>
     </div>
     <div id="dghb_search_results"></div>
     <?php return ob_get_clean();
 }
+
+// AJAX Search Handler (updated to include hotel type)
 add_action('wp_ajax_dghb_search_hotels', 'dghb_search_hotels');
 add_action('wp_ajax_nopriv_dghb_search_hotels', 'dghb_search_hotels');
 function dghb_search_hotels() {
     $title = sanitize_text_field($_POST['title']);
     $location = sanitize_text_field($_POST['location']);
+    $type = sanitize_text_field($_POST['type']);
     $paged = intval($_POST['paged']) ?: 1;
     $args = [
         'post_type' => 'dghb_hotel',
@@ -452,7 +477,8 @@ function dghb_search_hotels() {
         'post_status' => 'publish'
     ];
     if ($title) $args['s'] = $title;
-    if ($location) $args['meta_query'] = [['key' => '_dghb_city', 'value' => $location, 'compare' => 'LIKE']];
+    if ($location) $args['meta_query'][] = ['key' => '_dghb_city', 'value' => $location, 'compare' => 'LIKE'];
+    if ($type) $args['meta_query'][] = ['key' => '_dghb_hotel_type', 'value' => $type, 'compare' => '='];
     $query = new WP_Query($args);
     ob_start();
     if ($query->have_posts()) {
@@ -465,9 +491,7 @@ function dghb_search_hotels() {
     wp_die(ob_get_clean());
 }
 
-// ----------------------------------------------
-// Booking Submission (AJAX)
-// ----------------------------------------------
+// Booking Submission
 add_action('wp_ajax_dghb_submit_booking', 'dghb_submit_booking');
 add_action('wp_ajax_nopriv_dghb_submit_booking', 'dghb_submit_booking');
 function dghb_submit_booking() {
@@ -516,9 +540,7 @@ function dghb_send_booking_email($booking_id, $data, $days, $price_per_night) {
     foreach ($to as $email) wp_mail($email, $subject, $message, $headers);
 }
 
-// ----------------------------------------------
 // Enqueue Assets
-// ----------------------------------------------
 add_action('wp_enqueue_scripts', 'dghb_frontend_assets');
 function dghb_frontend_assets() {
     if (!is_admin()) {

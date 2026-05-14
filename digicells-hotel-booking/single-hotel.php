@@ -18,7 +18,7 @@
         $hotel_type = get_post_meta($hotel_id, '_dghb_hotel_type', true);
         $gallery = get_post_meta($hotel_id, '_dghb_gallery', true);
         $gallery_ids = $gallery ? explode(',', $gallery) : [];
-        // Get reviews
+        // Reviews
         global $wpdb;
         $reviews = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dghb_reviews WHERE hotel_id = %d AND status = 'approved' ORDER BY id DESC", $hotel_id));
         $avg_rating = 0;
@@ -26,6 +26,10 @@
             $total = array_sum(array_column($reviews, 'rating'));
             $avg_rating = round($total / count($reviews), 1);
         }
+        // Comments control
+        $comment_setting = get_post_meta($hotel_id, '_dghb_enable_comments', true);
+        $global_comments = get_option('dghb_enable_comments', 'yes');
+        $show_comments = ($comment_setting == 'default') ? ($global_comments == 'yes') : ($comment_setting == 'yes');
         ?>
         <h1><?php the_title(); ?></h1>
         <!-- Gallery Slider -->
@@ -94,7 +98,7 @@
             </div>
         </div>
         <!-- Comments Section (if enabled) -->
-        <?php if (get_option('dghb_enable_comments', 'yes') == 'yes') : ?>
+        <?php if ($show_comments) : ?>
             <div class="dghb-comments-section" style="margin-top:50px;">
                 <?php comments_template(); ?>
             </div>
@@ -102,14 +106,12 @@
     <?php endwhile; ?>
 </div>
 <script>
-// Simple gallery slider (optional)
 document.addEventListener('DOMContentLoaded', function() {
+    // Gallery slider
     let slideIndex = 0;
     const slides = document.querySelectorAll('.dghb-slide');
     if (slides.length > 0) {
-        function showSlides() {
-            slides.forEach((s, i) => s.style.display = i === slideIndex ? 'block' : 'none');
-        }
+        function showSlides() { slides.forEach((s, i) => s.style.display = i === slideIndex ? 'block' : 'none'); }
         showSlides();
         document.querySelector('.dghb-slider-prev')?.addEventListener('click', () => { slideIndex = (slideIndex > 0) ? slideIndex-1 : slides.length-1; showSlides(); });
         document.querySelector('.dghb-slider-next')?.addEventListener('click', () => { slideIndex = (slideIndex+1) % slides.length; showSlides(); });
@@ -120,9 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
         star.addEventListener('click', function() {
             let value = this.getAttribute('data-value');
             document.getElementById('dghb_rating_value').value = value;
-            stars.forEach((s, idx) => {
-                s.innerHTML = (idx < value) ? '★' : '☆';
-            });
+            stars.forEach((s, idx) => { s.innerHTML = (idx < value) ? '★' : '☆'; });
         });
     });
 });
