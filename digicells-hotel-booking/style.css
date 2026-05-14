@@ -1,4 +1,115 @@
-/* Search form with labels */
+/* Hotel Listing Grid - 4 columns on large, 2 on tablet, 1 on mobile */
+.dghb-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 25px;
+    margin: 20px 0;
+}
+@media (max-width: 1024px) {
+    .dghb-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 640px) {
+    .dghb-cards-grid {
+        grid-template-columns: 1fr;
+    }
+}
+/* Card styling */
+.dghb-card {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transition: transform 0.2s;
+}
+.dghb-card:hover {
+    transform: translateY(-4px);
+}
+.dghb-card-image img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+.dghb-card-content {
+    padding: 15px;
+}
+.dghb-status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+.dghb-status-badge.available { background: #10b981; color: white; }
+.dghb-status-badge.fully_booked { background: #ef4444; color: white; }
+.dghb-status-badge.temporarily_closed { background: #f59e0b; color: white; }
+.dghb-specs {
+    display: flex;
+    gap: 15px;
+    margin: 8px 0;
+    font-size: 0.85rem;
+    color: #666;
+}
+.dghb-location {
+    font-size: 0.85rem;
+    color: #666;
+    margin: 5px 0;
+}
+.dghb-price {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #f68511;
+    margin: 10px 0;
+}
+.dghb-price span {
+    font-size: 0.8rem;
+    font-weight: normal;
+}
+.dghb-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+.dghb-btn {
+    padding: 8px 15px;
+    border-radius: 30px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    display: inline-block;
+    background: #f68511;
+    color: white;
+}
+.dghb-btn-outline {
+    background: transparent;
+    border: 1px solid #f68511;
+    color: #f68511;
+}
+.dghb-btn-outline:hover {
+    background: #f68511;
+    color: white;
+}
+/* Pagination */
+.dghb-pagination {
+    text-align: center;
+    margin: 30px 0;
+}
+.dghb-pagination a, .dghb-pagination span {
+    display: inline-block;
+    margin: 0 5px;
+    padding: 8px 12px;
+    background: #f1f1f1;
+    border-radius: 5px;
+    text-decoration: none;
+}
+.dghb-pagination .current {
+    background: #0048a5;
+    color: white;
+}
+/* Search Form with labels & icons */
 .dghb-advanced-search {
     display: flex;
     flex-wrap: wrap;
@@ -20,6 +131,9 @@
     font-size: 0.9rem;
     color: #333;
 }
+.dghb-search-field .dghb-icon {
+    margin-right: 6px;
+}
 .dghb-search-field input, .dghb-search-field select {
     width: 100%;
     padding: 8px 12px;
@@ -40,3 +154,21 @@
         flex-direction: column;
     }
 }
+/* Gallery slider (for single hotel page) */
+.dghb-gallery-slider { position: relative; margin: 20px 0; }
+.dghb-slider-container { overflow: hidden; }
+.dghb-slide { display: none; text-align: center; }
+.dghb-slide img { max-height: 500px; width: auto; margin: auto; border-radius: 12px; }
+.dghb-slider-prev, .dghb-slider-next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    cursor: pointer;
+    border-radius: 50%;
+}
+.dghb-slider-prev { left: 10px; }
+.dghb-slider-next { right: 10px; }
